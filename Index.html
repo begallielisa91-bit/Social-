@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bynor AI Studio</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans p-6">
+  <div class="max-w-4xl mx-auto space-y-8">
+    
+    <!-- Header -->
+    <header class="border-b border-slate-800 pb-4">
+      <h1 class="text-3xl font-bold text-indigo-400">Bynor AI Studio</h1>
+      <p class="text-slate-400 text-sm">Generatore di contenuti social basato sull'identità di brand</p>
+    </header>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+      
+      <!-- Sezione 1: Setup Brand -->
+      <section class="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg space-y-4">
+        <h2 class="text-xl font-semibold text-white flex items-center gap-2">
+          <span>1.</span> Configura Brand
+        </h2>
+        
+        <form id="brandForm" class="space-y-3">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">ID Brand</label>
+            <input type="text" id="brandId" value="my_brand" required class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+          </div>
+
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Nome Brand</label>
+            <input type="text" id="brandName" placeholder="es. Caffè Rinaldi" required class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+          </div>
+
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Target Audience</label>
+            <input type="text" id="targetAudience" placeholder="es. Appassionati di cucina 25-45 anni" required class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+          </div>
+
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Esempi di Post Passati (1 per riga)</label>
+            <textarea id="pastPosts" rows="4" placeholder="Incolla qui 2-3 post precedenti..." required class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white focus:outline-none focus:border-indigo-500"></textarea>
+          </div>
+
+          <button type="submit" id="btnSetup" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2 rounded transition">
+            Analizza e Salva Brand
+          </button>
+        </form>
+
+        <div id="brandResult" class="text-xs p-3 rounded bg-slate-900/50 border border-slate-700 hidden"></div>
+      </section>
+
+      <!-- Sezione 2: Generazione Post -->
+      <section class="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg space-y-4">
+        <h2 class="text-xl font-semibold text-white flex items-center gap-2">
+          <span>2.</span> Genera Post
+        </h2>
+
+        <form id="postForm" class="space-y-3">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Piattaforma</label>
+            <select id="platform" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+              <option value="Instagram">Instagram</option>
+              <option value="Facebook">Facebook</option>
+              <option value="LinkedIn">LinkedIn</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Argomento del Post</label>
+            <textarea id="topic" rows="3" placeholder="es. Consigli per conservare il caffè a casa" required class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white focus:outline-none focus:border-indigo-500"></textarea>
+          </div>
+
+          <button type="submit" id="btnGenerate" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 rounded transition">
+            Genera Copy + Grafica
+          </button>
+        </form>
+
+        <div id="postLoading" class="hidden text-center py-4 text-slate-400 text-sm animate-pulse">
+          ⏳ Analisi tono e generazione immagine Flux.1 in corso...
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Output Post -->
+    <section id="outputCard" class="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg hidden">
+      <h3 class="text-lg font-semibold text-white mb-4">Risultato Generato</h3>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Copy per Social</label>
+          <div id="outCaption" class="bg-slate-900 p-4 rounded border border-slate-700 text-sm whitespace-pre-wrap text-slate-200"></div>
+        </div>
+
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Immagine Generata (Flux.1)</label>
+          <img id="outImage" src="" alt="AI Output" class="w-full h-auto rounded border border-slate-700 object-cover">
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <script>
+    // Configura Brand
+    document.getElementById('brandForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('btnSetup');
+      const resultDiv = document.getElementById('brandResult');
+      btn.disabled = true;
+      btn.textContent = 'Analisi in corso...';
+
+      const pastPostsText = document.getElementById('pastPosts').value;
+      const pastPosts = pastPostsText.split('\n').filter(p => p.trim() !== '');
+
+      try {
+        const res = await fetch('/api/brand/setup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            brandId: document.getElementById('brandId').value,
+            brandName: document.getElementById('brandName').value,
+            targetAudience: document.getElementById('targetAudience').value,
+            pastPosts
+          })
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          resultDiv.classList.remove('hidden');
+          resultDiv.className = 'text-xs p-3 rounded bg-emerald-950/40 border border-emerald-800 text-emerald-300';
+          resultDiv.textContent = `✓ Brand salvato! Stile estratto: ${data.brandProfile.toneOfVoice.slice(0, 100)}...`;
+        } else {
+          throw new Error(data.error);
+        }
+      } catch (err) {
+        resultDiv.classList.remove('hidden');
+        resultDiv.className = 'text-xs p-3 rounded bg-red-950/40 border border-red-800 text-red-300';
+        resultDiv.textContent = 'Errore: ' + err.message;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Analizza e Salva Brand';
+      }
+    });
+
+    // Genera Post
+    document.getElementById('postForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('btnGenerate');
+      const loader = document.getElementById('postLoading');
+      const outputCard = document.getElementById('outputCard');
+      
+      btn.disabled = true;
+      loader.classList.remove('hidden');
+      outputCard.classList.add('hidden');
+
+      try {
+        const res = await fetch('/api/post/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            brandId: document.getElementById('brandId').value,
+            topic: document.getElementById('topic').value,
+            platform: document.getElementById('platform').value
+          })
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          document.getElementById('outCaption').textContent = data.post.caption;
+          document.getElementById('outImage').src = data.post.imageUrl;
+          outputCard.classList.remove('hidden');
+        } else {
+          alert('Errore: ' + data.error);
+        }
+      } catch (err) {
+        alert('Errore di connessione: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        loader.classList.add('hidden');
+      }
+    });
+  </script>
+</body>
+</html>
